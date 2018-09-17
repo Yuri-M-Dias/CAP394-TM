@@ -1,0 +1,151 @@
+ID,DESCRIPTION,EQP,SYSTEM,TYPE,RANGE,ACCURACY,WORD,BIT,COMMENTS
+TM001,Receiver AGC voltage,DCP,DCS,AN,-130 to -80 dBm,+/- 2 dB,48,0,
+TM002,RF output power monitor,DCP,DCS,AN,17.5 to 20.5 dBm,+/- 0.2 dB,49,0,Range 17.5-19 (SAT2-A)
+TM003,Y axis output (300 mGauss),MGE,ACS,AN,-300 to 300 mG,+/- 2 mG,50,0,
+TM004,-X axis output (300 mGauss),MGE,ACS,AN,-300 to 300 mG,+/- 2 mG,51,0,
+TM005,Z axis output (300 mGauss),MGE,ACS,AN,-300 to 300 mG,+/- 2 mG,52,0,
+TM006,Y axis output (600 mGauss),MGE,ACS,AN,-600 to 600 mG,+/- 5 mG,53,0,
+TM007,-X axis output (600 mGauss),MGE,ACS,AN,-600 to 600 mG,+/- 5 mG,54,0,
+TM008,Z axis output (600 mGauss),MGE,ACS,AN,-600 to 600 mG,+/- 5 mG,55,0,
+TM009,Angie measurement bit 6 MSB,SS1,ACS,BL,,,4,1,
+TM010,Angle measurement bit 5,SS1,ACS,BL,,,4,2,
+TM011,Angle measurement bit 4,SS1,ACS,BL,,,4,3,
+TM012,Angle measurement bit 3,SS1,ACS,BL,,,4,4,
+TM013,Angle measurement bit 2,SS1,ACS,BL,,,4,5,
+TM014,Angle measurement bit 1,SS1,ACS,BL,,,4,6,
+TM015,Angle measurement bit 0 LSB,SS1,ACS,BL,,,4,7,
+TM016,Detector identiﬁcation bit,SS1,ACS,BL,,,4,O,
+TM017,Spin rate measurement,SS1,ACS,BL,,,6,0,
+TM018,Angle measurement bit 6 MSB,SS2,ACS,BL,,,5,1,
+TM019,Angle measurement bit 5,SS2,ACS,BL,,,5,2,
+TM020,Angle measurement bit 4,SS2,ACS,BL,,,5,3,
+TM021,Angle measurement bit 3,SS2,ACS,BL,,,5,4,
+TM022,Angie measurement bit 2,SS2,ACS,BL,,,5,5,
+TM023,Angle measurement bit 1,SS2,ACS,BL,,,5,6,
+TM024,Angle measurement bit 0 LSB,SS2,ACS,BL,,,5,7,
+TM025,Detector identiﬁcation bit,SS2,ACS,BL,,,5,0,
+TM026,Spin rate measurement,SS2,ACS,BL,,,6,1,
+TM027,Receiver AGC voltage,TR1,TMTC,AN,-130 to -50 dB,+/- 2 dB,56,0,-130 to -70 dBm(SAT2-A)
+TM028,Static phase error (SPE),TR1,TMTC,AN,-130 to 130 kHz,+/- 1 kHz,57,0,
+TM029,Lock status,TR1,TMTC,BL,,,7,O,1=in-lock 0=out-of-lock
+TM030,TM video input channel,TR1,TMTC,BL,,,7,1,1=ch1 0=ch2
+TM031,Ranging on/off status,TR1,TMTC,BL,,,7,2,1=on 0=off
+TM032,Coherent enable/disable status,TR1,TMTC,BL,,,7,3,1=enable 0=disable
+TM033,RF output power monitor,TR1,TMTC,AN,27 to 30 dBm,+/- 0.2 dB,58,0,Range: 27-30 (SAT2-A)
+TM034,Motor speed,ERR,ERR,AN,-1500 to 1500,,88,0,(rpm)
+TM035,Motor current,ERR,ERR,AN,0 - 250 mA,,89,0,
+TM036,Motor temperature,ERR,ERR,TH,5 to 35 C,,90,0,
+TM037,,,,,,,91,0,
+TM038,Bearing temperature 1,ERR,ERR,TH,510 35 C,,92,0,
+TM039,Bearing temperature 2,ERR,ERR,TH,5 to 35 C,,93,0,
+TM040,,,,,,,94,0,
+TM041,,,,,,,95,0,
+TM042,Receiver AGC voltage,TR2,TMTC,AN,-130 to -50 dBm,+/- 2 dB,60,0,
+TM043,Static phase error (SPE),TR2,TMTC,AN,-130 to 130 kHz,+/- 1 kHz,61,0,
+TM044,Lock status,TR2,TMTC,BL,,,7,4,1=in-lock 0=out-of-lock
+TM045,TM video input signal,TR2,TMTC,BL,,,7,5,1=ch1 0=ch2
+TM046,Ranging on/off status,TR2,TMTC,BL,,,7,6,1=on 0=off
+TM047,Coherent enable/disable status,TR2,TMTC,BL,,,7,7,1=enable 0=disable
+TM048,RF output power monitor,TR2,TMTC,AN,25 to 28 dBm,+/- 0.2 dB,62,0,Range 25-31 (SAT2-A)
+TM049,,,,,,,59,0,
+TM050,,,,,,,63,0,
+TM051,SCE Telemetry Current lsc(Vsh),SCE,SCE,AN,10 to 150 mA,+/- 0.01 V,83,0,
+TM052,SCE Telemetry Voltage UL (Vmp),SCE,SCE,AN,0.1 to 1.2 V,,84,0,
+TM053,SCE Telemetry Voltage Uoc(Voc),SCE,SCE,AN,0.1 to 1.5 V,,85,0,
+TM054,,,,,,,64,0,
+TM055,,,,,,,65,0,
+TM056,,,,,,,66,0,
+TM057,,,,,,,87,0,
+TM058,"ASW & frame st., mode. word A",DEC,TMTC,DS,,,0,0,routed to OBC
+TM059,Data words B and C,DEC,TMTC,DS,,,0,0,not used
+TM060,Subcarrier presence 1,DEC,TMTC,BL,,,6,2,1=present 0=absent
+TM061,Subcarrier presence 2,DEC,TMTC,BL,,,6,3,1=present 0=absent
+TM062,EOC control status,PCU,PSS,BL,,,11,2,1=inhibit 0=enable
+TM063,ERR status,ERR,ERR,BL,,,9,2,1=on 0=off
+TM064,Spin control status X,PDU,PSS,BL,,,11,4,1=on 0=off
+TM065,Ampliﬁer X status,PDU,PSS,BL,,,11,5,1=on 0=off
+TM066,Spin control direct/reverse,PDU,PSS,BL,,,11,6,0= direct 1=reverse
+TM067,,,,,,,6,4,
+TM068,MP current regulator voltage,OBC,OBS,AN,1.3 to 2.4 V,+/- 0.01 V,67,0,
+TM069,Microprocessor voltage,OBC,OBS,AN,0.6 to 1.3 V,+/- 0.01 V,68,0,
+TM070,Microprocessor temperature,OBC,OBS,TH,4 to 34 C,+/- 1 C,17,0,
+TM071,Failure flag,OBC,OBS,BL,,,6,5,1=failed O=good
+TM072,Battery temperature 1,PCU,PSS,TH,-3 to 26 C,+/- 0.3 C,86,0,
+TM073,,,,,,,11,0,
+TM074,Min. voltage in 4 batt. cells,PCU,PSS,AN,4.6 to 6.25 V,+/- 0.03 V,82,0,
+TM075,Total panels current,PCU,PSS,AN,0 to 5.856 A,+/- 0.05 A,69,0,
+TM076,Shunt current,PCU,PSS,AN,0 to 5 A,+/- 0.06 A,70,O,
+TM077,BCR1 status,PCU,PSS,BL,,,8,0,1=on 0=off
+TM078,BCR2 status,PCU,PSS,BL,,,8,1,1=on 0=off
+TM079,Battery current,PCU,PSS,AN,-3 to 1.7 A,+/- 0.04 A,71,0,
+TM080,Battery voltage monitor,PCU,PSS,AN,16 to 25 V,+/- 0.12 V,72,0,
+TM081,Battery temperature 2,PCU,PSS,TH,-3 to 26 C,+/- 0.3 C,73,0,
+TM082,BDR1 status,PCU,PSS,BL,,,8,2,1=on 0=off
+TM083,BDR2 status,PCU,PSS,BL,,,8,3,1=on 0=off
+TM084,DC/DC converter 1 status,DCC,PSS,BL,,,8,4,1=on 0=off
+TM085,DC/DC converter 2 status,DCC,PSS,BL,,,8,5,1=on 0=off
+TM086,Timer status,DCC,PSS,BL,,,11,1,1=on 0=off
+TM087,+5 V voltage monitor,DCC,PSS,AN,4.85 to 5.45 V,+/- 0.02 V,74,0,
+TM088,+15 V voltage monitor,DCC,PSS,AN,15.0 to 15.8 V,+/- 0.07 V,75,0,
+TM089,-15 V voltage monitor,DCC,PSS,AN,-15.7 to -14.6V,+/- 0.07 V,76,0,
+TM090,Power bus voltage monitor,PCU,PSS,AN,26.2 to 27.2 V,+/- 0.13 V,77,0,
+TM091,+5 V current monitor,DCC,PSS,AN,0 to 1.2 A,+/- 0.05 A,78,0,
+TM092,+15 V current monitor,DCC,PSS,AN,0 to 0.6 A,+/- 0.02 A,79,0,
+TM093,~15 V current monitor,DCC,PSS,AN,0 to 0.4 A,+/— 0.02 A,80,0,
+TM094,Power bus current monitor,PCU,PSS,AN,0.2 to 1.7 A,+/- 0.05 A,81,0,
+TM095,Magnetometer switch status,PDU,PSS,BL,,,8,6,1=on 0=off
+TM096,PCD transponder on/off status,PDU,PSS,BL,,,8,7,1=on 0=off
+TM097,Sun sensor + 5 V switch status,PDU,PSS,BL,,,9,O,1=on 0=off
+TM098,Sun sensor +15 V switch status,PDU,PSS,BL,,,9,1,1=on 0=off
+TM099,Sun sensor -15 v switch status,PDU,PSS,BL,,,9,2,1=on 0=off
+TM100,Ampliﬁer Y status,PDU,PSS,BL,,,11,7,1=on 0=off (*)
+TM101,OBC +5 V switch status,PDU,PSS,BL,,,9,4,1=on 0=off
+TM102,080 +15 V switch status,PDU,PSS,BL,,,9,5,1=on 0=off
+TM103,OBC -15 V switch status,PDU,PSS,BL,,,9,6,1=on 0=off
+TM104,TMTC TX 2 on/off status,PDU,PSS,BL,,,9,7,1=on 0=off
+TM105,TMTC TX 1 on/off status,PDU,PSS,BL,,,10,0,1 =on 0=off
+TM106,Strap bypass switch status,PDX,PSS,BL,,,10,1,1=on 0=off
+TM107,CODIR +5 V switch status,PDU,PSS,BL,,,10,2,1=on 0=off
+TM108,CODIR +15 V switch status,PDU,PSS,BL,,,10,3,1=on 0=off
+TM109,CODIR -15 V switch status,PDU,PSS,BL,,,10,4,1=on 0=off
+TM110,Axis torque coil on/off st.,PDU,PSS,BL,,,10,5,1=on 0=off
+TM111,,,,,,,10,6,
+TM112,Axis torque coil current polar,PDU,PSS,BL,,,10,7,1=negative 0=positive
+TM113,DCP temperature monitor,INT,,TH,6 to 25 C,+/- 1 C,18,0,outside box
+TM114,MGE temperature monitor,INT,,TH,-4 to 29 C,+/- 1 C,20,0,outside box
+TM115,LP6 temperature monitor,INT,,TH,-34 to 36 C,+/- 1 C,22,0,
+TM116,TR1 temperature monitor,INT,,TH,7 to 27 C,+/- 1 C,24,0,outside box
+TM117,TR2 temperature monitor,INT,,TH,8 to 26 C,+/- 1 C,26,0,outside box
+TM118,DEC temperature monitor,INT,,TH,6 to 24 C,+/- 1 C,28,0,outside box
+TM119,OBC temperature monitor,INT,,TH,5 to 27 C,+/- 1 C,30,0,outside box
+TM120,ERR temperature monitor,INT,,TH,5 to 28 C,+/- 1 C,32,0,outside box
+TM121,ENC temperature monitor,INT,,TH,6 to 25 C,+/- 1 C,34,0,outside box
+TM122,PCU temperature monitor,INT,,TH,4 to 29 C,+/- 1 C,36,0,outside box
+TM123,,,,,,,38,0,
+TM124,SD1 temperature monitor,INT,,TH,-4 to 41 C,+/- 1 C,40,0,outside box
+TM125,,,,,,,42,0,
+TM126,SD2 temperature monitor,INT,,TH,-3 to 42 C,+/- 1 C,44,0,outside box
+TM127,BAT temperature monitor,INT,,TH,-2 to 20 C,+/- 1 C,46,0,outside box
+TM128,DCC temperature monitor,INT,,TH,7 to 27 C,+/- 1 C,19,0,outside box
+TM129,RDU temperature monitor,INT,,TH,5 to 24 C,+/- 1 C,21,0,outside box
+TM130,SS1 temperature monitor,INT,,TH,5 to 26 C,+/- 1 C,23,0,outside box
+TM131,SS2 temperature monitor,INT,,TH,5 to 26 C,+/- 1 C,25,0,outside box
+TM132,CP inf. temperature monitor,INT,,TH,-1 to 27 C,+/- 1 C,27,0,
+TM133,CP sup. temperature monitor,INT,,TH,-1 to 27 C,+/- 1 C,29,0,
+TM134,BP temper. monitor (near BAT),INT,,TH,-17 to 30 C,+/- 1 C,31,0,
+TM135,BP temper. monitor (near PCU),INT,,TH,-17 to 30 C,+/- 1 C,33,0,
+TM136,TP temperature monitor,INT,,TH,-12 to 24 C,+/- 1 C,35,0,
+TM137,LP2 temperature monitor,INT,,TH,-34 to 36 C,+/- 1 C,37,0,
+TM138,+X spin TC temperature monitor,INT,,TH,-25 to 36 C,+/- 1 C,39,0,
+TM139,-Y spin TC temperature monitor,INT,,TH,-25 to 36 C,+/- 1 C,41,0,
+TM140,SCE temperature monitor,SCE,,TH,-39 to 34 C,+/- 1 C,43,0,
+TM141,Axis TQC temperature monitor,INT,,TH,-1 to 22 C,+/- 1 C,45,0,outside box
+TM142,NDP temperature monitor,INT,,TH,-3 to 21 C,+/- 1 C,47,0,outside box
+TM143,,,,,,,16,0,
+TM144,,,,,,,96,0,
+TM145,Spin control status Y,PDU,,BL,,,11,3,1=on 0=off
+TM146,Speed proﬁle status 1,ERR,ERR,BL,,,6,6,00=100rpm;01=750rpm(**)
+TM147,Speed proﬁle status 2,ERR,ERR,BL,,,6,7,10=1500rpm; 11=500rpm
+TM148,,,,,,,97,0,
+TM149,,,,,,,98,0,
+TM150,,,,,,,99,0,
