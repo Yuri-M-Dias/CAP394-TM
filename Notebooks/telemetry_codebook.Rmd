@@ -2,11 +2,7 @@
 title: "Data Codebook"
 author: Yuri Matheus Dias Pereira
 date: "`r format(Sys.time(), '%d/%m/%Y')`"
-output:
-  html_document:
-    highlight: tango
-    keep_md: yes
-    theme: readable
+output: github_document
 ---
 
 # Codebook

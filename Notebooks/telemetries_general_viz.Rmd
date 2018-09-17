@@ -2,11 +2,7 @@
 title: "Telemetries General Visualization"
 author: Yuri Matheus Dias Pereira
 date: "`r format(Sys.time(), '%d/%m/%Y')`"
-output:
-  html_document:
-    highlight: tango
-    keep_md: yes
-    theme: readable
+output: github_document
 ---
 
 This is part of the EDA, but since it's quite repetitive, I've chosen to use another file for it.
@@ -30,7 +26,7 @@ library(gridExtra) # Plot grids
 Let's import the prepared telemetries description table now, along with some useful functions and constants defined in `reading_telemetry.R`:
 
 ```{r data}
-PROJ_FOLDER = "./"
+PROJ_FOLDER = "../"
 source(paste0(PROJ_FOLDER, "R/reading_telemetry.R"))
 DATA_DIR = paste0(PROJ_FOLDER, "Data/")
 TELEMETRY_FST_PATH = paste0(DATA_DIR, "sat2_2018-03.fst")

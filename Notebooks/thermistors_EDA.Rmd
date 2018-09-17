@@ -2,11 +2,7 @@
 title: "Satellite Telemetry temperature analysis"
 author: Yuri Matheus Dias Pereira
 date: "`r format(Sys.time(), '%d/%m/%Y')`"
-output:
-  html_document:
-    highlight: tango
-    keep_md: yes
-    theme: readable
+output: github_document
 ---
 
 This notebook displays an EDA on the satellite thermistor data.
@@ -24,6 +20,12 @@ library(fst) # File reading
 library(gridExtra) # Plot grids
 library(tidyverse) # meta-package: everything else
 library(magrittr)
+library(forecast)
+library(TTR)
+library(dtw)
+library(tidyquant)
+library(timetk)
+library(sweep)
 ```
 
 # Reading the Data
@@ -121,7 +123,6 @@ tms = telemetries.valid[1:100000]
 sample.ts = telemetries.valid[, .(date,TM072)]
 sample.tss = ts(sample.ts)
 
-library(TTR)
 sample.tss2 <- sample.ts %>%
   # Complete the sequence
   complete(date = seq(sample.ts[1]$date,sample.ts[.N]$date, by= .5)) %>%
@@ -130,7 +131,6 @@ sample.tss2 <- sample.ts %>%
 sample.tss2s = ts(sample.tss2[,-c('date')], deltat = .5)
 
 dcm.tss = decompose(sample.tss)
-library(forecast)
 
 ```
 
@@ -176,12 +176,6 @@ plot(forecast(tms.arima.fit, h = 10, xreg = Xreg1))
 Small attempt using DTW, but it's very slow for anything big.
 
 ```{r}
-library(dtw)
-
-library(tidyquant)
-library(timetk)
-library(sweep)
-
 tms10k = tms[1:10000]
 
 bigpassages = tms10k %>%
