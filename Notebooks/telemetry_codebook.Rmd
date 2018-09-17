@@ -1,0 +1,133 @@
+---
+title: "Data Codebook"
+author: Yuri Matheus Dias Pereira
+date: "`r format(Sys.time(), '%d/%m/%Y')`"
+output:
+  html_document:
+    highlight: tango
+    keep_md: yes
+    theme: readable
+---
+
+# Codebook
+
+This a Notebook to explain how the telemetry data was formatted and saved.
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r setup}
+library(tidyverse)
+library(data.table)
+library(lubridate)
+library(GGally)
+library(parallel)
+library(fst)
+```
+
+# Reading the Data
+
+Some useful constants
+```{r setup}
+sat_DATA_FILE <- "./Data/sat2_2018-03.unix.csv"
+CSV_SEPARATOR <- ","
+```
+
+Using `data.table`, for comparison.
+```{r}
+headerNames <- scan(
+  file = sat_DATA_FILE,
+  nlines = 1,
+  what = character(),
+  sep = CSV_SEPARATOR
+) # Ignores first row as header names
+headerDescription <- scan(
+  file = sat_DATA_FILE,
+  skip = 1,
+  nlines = 1,
+  what = character(),
+  sep = CSV_SEPARATOR
+)
+headerUnits <- scan(
+  file = sat_DATA_FILE,
+  skip = 2,
+  nlines = 1,
+  what = character(),
+  sep = CSV_SEPARATOR
+)
+```
+
+```{r}
+sat2 <- fread(
+  input = paste("head -n -1", sat_DATA_FILE), # Ignores last row
+  header = FALSE,
+  #verbose = TRUE, # For debug
+  skip = 3,
+  encoding = 'Latin-1',
+  dec = '.',
+  nThread = detectCores(),
+  stringsAsFactors = TRUE,
+  check.names = TRUE,
+  col.names = headerNames,
+  sep = CSV_SEPARATOR
+)
+sat2 <- sat2[,.SD[-1:-2]] # Drops first two rows (desc and type)
+#str(sat2)
+```
+It looks like the last row has a problem with it, of not having all the necessary data... but we're ignoring it for now.
+```{r}
+sat2[,`Data-Hora` := dmy_hms(`Data-Hora`)] %>%
+  setnames("Data-Hora", "date")
+# Lubridate makes this useless, here as comment
+# as.POSIXct(strptime(`Data-Hora`, "%d-%b-%Y %H:%M:%OS"))
+# Prints with fractional seconds
+op <- options(digits.secs = 3)
+str(sat2$date)
+```
+
+Let's import the prepared telemetries description table now.
+```{r}
+sat2_TELEMETRIES_DATA_FILE <- "./Data/telemetryDescription.csv"
+telemetries <- fread(
+  input =  sat2_TELEMETRIES_DATA_FILE,
+  header = TRUE,
+  #verbose = TRUE, # For debug
+  encoding = 'Latin-1',
+  dec = '.',
+  nThread = detectCores(),
+  stringsAsFactors = FALSE,
+  check.names = TRUE,
+  sep = CSV_SEPARATOR
+)
+```
+
+Fast starter: already did everything above, just saved to .fst:
+```{r}
+TELEMETRY_FST_PATH <- "./Data/sat2_2018-03.fst"
+sat2 <- read.fst(TELEMETRY_FST_PATH, as.data.table = TRUE)
+```
+
+This file will prove really useful, however...
+```{r}
+allTelemetries <- telemetries[, .(ID)]
+observedTelemetries <- names(sat2[,-c('date', 'CheckCRC')])
+extraTelemetries <- observedTelemetries[
+  !observedTelemetries %in% allTelemetries
+]
+extraTelemetries
+```
+This indicates that we have observed telemetries that are different from the actual documentation of the satellite...
+
+Let's see how it looks like:
+```{r}
+telemetries[,.(.N), by = .(SYSTEM, EQP)]
+```
+
+All right, this should be enough importing for now.
+
+Get only the numerical variables for now.
+```{r}
+sat2.num <- sat2[, lapply(sat2, is.numeric) == TRUE, with = FALSE]
+numericalTelemetries <- names(sat2.num)
+```

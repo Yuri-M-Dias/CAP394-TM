@@ -1,0 +1,1005 @@
+---
+title: "Telemetries General Visualization"
+author: Yuri Matheus Dias Pereira
+date: "`r format(Sys.time(), '%d/%m/%Y')`"
+output:
+  html_document:
+    highlight: tango
+    keep_md: yes
+    theme: readable
+---
+
+This is part of the EDA, but since it's quite repetitive, I've chosen to use another file for it.
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r setuplibs}
+library(tidyverse) # meta-package: everything else
+library(data.table) # Table
+library(lubridate) # Date
+library(GGally) # ggplot2 convenience
+library(parallel) # Threads counts
+library(fst) # File reading
+library(gridExtra) # Plot grids
+```
+
+# Reading the Data
+
+Let's import the prepared telemetries description table now, along with some useful functions and constants defined in `reading_telemetry.R`:
+
+```{r data}
+PROJ_FOLDER = "./"
+source(paste0(PROJ_FOLDER, "R/reading_telemetry.R"))
+DATA_DIR = paste0(PROJ_FOLDER, "Data/")
+TELEMETRY_FST_PATH = paste0(DATA_DIR, "sat2_2018-03.fst")
+sat2_TELEMETRIES_DESC_FILE = paste0(DATA_DIR, "telemetryDescription.csv")
+
+telemetries = read.telemetries.description(sat2_TELEMETRIES_DESC_FILE)
+sat2 = read.telemetry.fst(TELEMETRY_FST_PATH)
+```
+
+# CRC Check
+
+This is a way for the system to know if the current telemetry frame was received properly.
+It uses a simple bit-adding mechanism to know if the data is as expected, however, it can inform if the data is bad, and not correct it.
+It's used because it's fast and simple, and missing a telemetry frame or two isn't apparently a big thing.
+Also, it can happen depending on various telecommunication factors that aren't relevant here.
+
+Let's get a visual for it...
+
+```{r}
+summary(sat2$CheckCRC)
+#match('CheckCRC', names(sat2))
+ggplot(
+  data = sat2,
+  aes(CheckCRC)
+) +
+  geom_bar()
+```
+
+Hmm... this might be the skew in the previous data. Let's make a small check for it.
+
+```{r}
+sat2.valid <- sat2[CheckCRC != 'Erro']
+telemetries.extra = c('TM353', 'TM354')
+
+sat2.melt <- melt.data.table(
+  sat2.valid, id.vars = 'date', variable.name = 'series',
+  measure.vars = telemetries.extra
+)
+ggplot(
+  data = sat2.melt,
+  aes(x = date, y = value, colour = series)
+) +
+  geom_point() +
+  scale_x_datetime(date_breaks = "1 day", date_labels = '%d-%m') +
+  theme(axis.text.x = element_text(angle = 60, hjust = 1)) +
+  facet_grid(series ~ .)
+```
+
+This looks slighly better. Some of the odd values have disappeared, which supports the decision to take out the CRC checks altogether.
+
+I do have one question, though: when are these checks most likely to appear?
+```{r}
+sat2.melt <- melt.data.table(
+  sat2, id.vars = 'date', variable.name = 'series',
+  measure.vars = c('CheckCRC')
+)
+ggplot(
+  data = sat2.melt,
+  aes(x = date, y = value, colour = series)
+) +
+  geom_jitter() +
+  scale_x_datetime(date_breaks = "1 day", date_labels = '%d-%m') +
+  theme(axis.text.x = element_text(angle = 60, hjust = 1))
+```
+... question not answered...
+
+Let's group by week to check the distribution.
+```{r}
+sat2.melt <- melt.data.table(
+  sat2, id.vars = 'date', variable.name = 'series',
+  measure.vars = c('CheckCRC')
+)
+
+sat2.weeks <- sat2.melt %>%
+  group_by(week = week(date), value) %>%
+  summarise(count = n())
+
+ggplot(
+  data = sat2.weeks,
+  aes(x = week, y = count, fill = value)
+) +
+  scale_y_log10() +
+  geom_col(position = 'dodge')
+```
+Since this is log-scale, it just tells us that there's far less errors than OK values, as expected.
+Without the log, this would get ugly and not so easy to see.
+
+## Testing fot PSS-PCU-Temps
+
+Let's see if there's any sense to the previous data for a single subsystem.
+I've chosen the battery temps (*72* and *81*) here, because they should be fairly constant, and thus the wrong CRC checks will give us some ideas about the validity of the data.
+
+```{r}
+sat2.valid <- sat2[CheckCRC != 'Erro']
+sat2.invalid <- sat2[CheckCRC == 'Erro']
+
+pss.pcu.temp.telemetries <- c('TM072','TM081')
+
+# Quickly make new TS plots!
+simpleTelemTSPlot = function(data,
+                             measures,
+                             id.vars = 'date',
+                             geom = ggplot2::geom_point,
+                             scale.date = TRUE,
+                             facet = TRUE) {
+  # I know, repetition, but uses less memory than the full object
+  data.melt = melt.data.table(
+    data, id.vars = id.vars, variable.name = 'series',
+    measure.vars = measures
+  )
+  data.plot = ggplot(
+    data = data.melt,
+    aes(x = date, y = value, colour = series)
+  ) +
+    geom()
+  
+  if (scale.date) {
+    data.plot = data.plot + 
+      scale_x_datetime(
+        date_breaks = "12 hours",
+        date_labels = '%d-%m - %H:%M'
+        ) +
+      theme(
+        axis.text.x = element_text(
+          angle = 80, hjust = 1.0, vjust = 1.0
+        )
+      )
+  }
+  if (facet) {
+    data.plot = data.plot + 
+      facet_grid(series ~ ., scales = 'free_y')
+  }
+
+  return(data.plot)
+}
+```
+
+Sample viewing with all the data
+```{r}
+simpleTelemTSPlot(sat2, pss.pcu.temp.telemetries)
+```
+
+Now only the telemetries that failed the CRC check...
+
+```{r}
+simpleTelemTSPlot(
+  sat2.invalid, pss.pcu.temp.telemetries
+)
+```
+
+And the ones that succeeded it...
+
+```{r}
+simpleTelemTSPlot(
+  sat2.valid, pss.pcu.temp.telemetries
+)
+```
+
+The trend is quite clear! The noise from before was almost entirely from received data.
+
+# Actual explanations
+
+All right, so with a previous part of the EDA, we can do it more formally in this section. 
+I'll start from each of the telemetries, tell what they're supposed to plot and then plot what I can. I'll try to find explanations to weird stuff, and reuse as much code as possible.
+
+I'll follow them in order, and keep the analysis as standardized as possible.
+
+## Data Collection System - DCS
+
+```{r}
+telemetries.dcs = telemetries[SYSTEM == 'DCS']
+telemetries.dcs
+```
+This is the actual payload telemetries, these show what the payload antennas are receiving.
+
+### TM001 - Receiver AGC voltage
+
+I believe that this is the voltage for the receiving antena.
+
+Should range from -130 to -80 dBm, but it seems to vary widly.
+
+> The receiver AGC voltage gives an indication of the input level at the receiver input
+
+```{r}
+curr.telemetries = c('TM001')
+summary(sat2[,..curr.telemetries])
+```
+
+> Plot with all data
+
+```{r}
+simpleTelemTSPlot(sat2, curr.telemetries)
+```
+
+> Plot with only invalid data
+
+```{r}
+simpleTelemTSPlot(sat2.invalid, curr.telemetries)
+```
+
+> Plot with only valid data
+
+```{r}
+simpleTelemTSPlot(sat2.valid, curr.telemetries)
+```
+Now that's more like it! While it does vary, it's way less than what the invalid data makes it look like. A lot of points are on the exact same spot, however.
+
+### Transmitter RF Output Power - TM002
+
+Document gives me nothing. Seems to be the transmitter back to the ground for the data, though.
+
+> Telemetry name
+> Telemetry description
+> Telemetry expected values
+
+```{r}
+curr.telemetries = c('TM002')
+summary(sat2[,..curr.telemetries])
+```
+
+> Plot with all data
+
+```{r}
+simpleTelemTSPlot(sat2, curr.telemetries)
+```
+
+> Plot with only invalid data
+
+```{r}
+simpleTelemTSPlot(sat2.invalid, curr.telemetries)
+```
+
+> Plot with only valid data
+
+```{r}
+simpleTelemTSPlot(sat2.valid, curr.telemetries)
+```
+Seems nearly constant, so it should be working. These depressions need further investigation, though. Might be either transmission failure or some real artifact in the data.
+
+## Attitude Control System - ACS
+
+```{r}
+telemetries.acs = telemetries[SYSTEM == 'ACS']
+telemetries.acs
+```
+
+For this we have a good number of telemetries, separated into subsystems. Let's do some in bulk.
+
+### MGE axis output (300 mGauss) - TM003, TM004, TM005
+
+These are apparently the magnetometer readings for all three axis.
+Documentation gives me nothing if the 300 mGauss one is the same as the 600 mGauss or if they are different instruments.
+
+These should all vary between -300 and 300 mGauss, with a +/- 2 mGauss error.
+
+```{r}
+curr.telemetries = c('TM003', 'TM004', 'TM005')
+summary(sat2[,..curr.telemetries])
+```
+
+> Plot with all data
+
+```{r}
+simpleTelemTSPlot(sat2, curr.telemetries)
+```
+
+> Plot with only invalid data
+
+```{r}
+simpleTelemTSPlot(sat2.invalid, curr.telemetries)
+```
+
+> Plot with only valid data
+
+```{r}
+simpleTelemTSPlot(sat2.valid, curr.telemetries)
+```
+
+While the invalid data certainly had all that spread, this requires further looking to analyze whether it's worth mentioning.
+The values do vary widly even with that, though.
+
+### MGE axis output (600 mGauss) - TM006, TM007, TM008
+
+Seems to be the same measurement as the last three, but either with a different equipment or with different means of measure, documentation isn't clear at all.
+
+Range from -600 to 600 mGauss.
+
+```{r}
+curr.telemetries = c('TM006', 'TM007', 'TM008')
+summary(sat2[,..curr.telemetries])
+```
+
+> Plot with all data
+
+```{r}
+simpleTelemTSPlot(sat2, curr.telemetries)
+```
+
+> Plot with only invalid data
+
+```{r}
+simpleTelemTSPlot(sat2.invalid, curr.telemetries)
+```
+
+> Plot with only valid data
+
+```{r}
+simpleTelemTSPlot(sat2.valid, curr.telemetries)
+```
+
+Hmmm, the valid data is surprisingly coherent with the 300 mGauss one.
+What's the point of this more sensible magnetometer, then?
+
+### Solar Sensor (SS) - 1 - TM009~TM017
+
+These are the bits that identify the solar sensor measurements?
+This probably has a calculation for each bit, so it doesn't make sense to check the value for each day.
+
+```{r}
+curr.telemetries = telemetries.acs[EQP == 'SS1']$ID
+summary(sat2[, ..curr.telemetries])
+```
+
+> Plot with all data
+
+```{r}
+simpleTelemTSPlot(sat2, curr.telemetries)
+```
+
+> Plot with only invalid data
+
+```{r}
+simpleTelemTSPlot(sat2.invalid, curr.telemetries)
+```
+
+> Plot with only valid data
+
+```{r}
+simpleTelemTSPlot(sat2.valid, curr.telemetries)
+```
+
+As expected, there isn't much to be learned here.
+This appears to be highly specific, since these are bits, and should need a proper algorithm/translation to know the difference and how to read it.
+How does SATCS does it, though? I highly doubt that operators can (or better yet, *should*) untangle this by themselves...?
+
+### Solar Sensor (SS) - 2 - TM018~TM026
+
+The second solar sensor measurements? No idea if these are two different sensors or just part of the first one. Probably two different sensors.
+
+```{r}
+curr.telemetries = telemetries.acs[EQP == 'SS2']$ID
+summary(sat2[, ..curr.telemetries])
+```
+
+> Plot with all data
+
+```{r}
+simpleTelemTSPlot(sat2, curr.telemetries)
+```
+
+> Plot with only invalid data
+
+```{r}
+simpleTelemTSPlot(sat2.invalid, curr.telemetries)
+```
+
+> Plot with only valid data
+
+```{r}
+simpleTelemTSPlot(sat2.valid, curr.telemetries)
+```
+
+As expected, this is not a good visualization, albeit the values are somewhat similar than the SS1 ones.
+Not sure what can be learned from this data, need further investigation.
+
+## Telemetry and Telecommands Subsystem - TMTC
+
+This one is quite big. There's three main equipments: TR1, TR2, which are the TM transmission antennas/channels and DEC, presumably that which decodificates the TM messages.
+
+```{r}
+telemetries.tmtc = telemetries[SYSTEM == 'TMTC']
+telemetries.tmtc
+```
+
+## Transmitter/Channel 1 - TR1
+
+```{r}
+telemetries.tmtc.tr1 = telemetries.tmtc[EQP == 'TR1']
+telemetries.tmtc.tr1
+```
+
+These should be the telemetries for the first telemetry transmission channel/antenna.
+I know that these are in C band, as the payload antennas are separate from the TM ones.
+
+We have Analog and Digital channel telemetries, the digital ones work as boolean values, and the analog ones as floating points.
+
+Let us see the analog ones first.
+
+```{r}
+curr.telemetries = telemetries.tmtc.tr1[TYPE == 'AN']$ID
+summary(sat2[,..curr.telemetries])
+```
+THat is ineed a hell lot of noise. Let's see if we can plot this...
+
+> Plot with all data
+
+```{r}
+simpleTelemTSPlot(sat2, curr.telemetries)
+```
+
+> Plot with only invalid data
+
+```{r}
+simpleTelemTSPlot(sat2.invalid, curr.telemetries)
+```
+
+> Plot with only valid data
+
+```{r}
+simpleTelemTSPlot(sat2.valid, curr.telemetries)
+```
+
+To help make sense of these plots, we'll need the other side of the data: the Digital values.
+The "Not processed" values in the previous plots were due to TM029: it tells us if this particular equipment is being used for transmission or not.
+Sometimes it is, sometimes it isn't, that's why it only works if it's necessary.
+And why the CRC failures and the valid data are so close to one another.
+
+
+TM's 29 to 32 are the ones responsible for letting us know if the subsystem is being used or not, so they're useful for the other telemetries.
+
+```{r}
+curr.telemetries = telemetries.tmtc.tr1[TYPE == 'BL']$ID
+summary(sat2[,..curr.telemetries])
+```
+
+> Plot with all data
+
+```{r}
+simpleTelemTSPlot(sat2, curr.telemetries)
+```
+
+> Plot with only invalid data
+
+```{r}
+simpleTelemTSPlot(sat2.invalid, curr.telemetries)
+```
+
+> Plot with only valid data
+
+```{r}
+simpleTelemTSPlot(sat2.valid, curr.telemetries)
+```
+
+Interestingly, 31 is ranging status with this transmitter. Doesn't appear to have been used, though.
+
+## Transmitter/Channel 2 - TR2
+
+The same thing as TR1, mostly for redundancy I believe.
+
+```{r}
+telemetries.tmtc.tr2 = telemetries.tmtc[EQP == 'TR2']
+telemetries.tmtc.tr2
+```
+
+Won't repeat: same explanation as TR1.
+
+```{r}
+curr.telemetries = telemetries.tmtc.tr2[TYPE == 'AN']$ID
+summary(sat2[,..curr.telemetries])
+```
+...Though this one is definitely the one that is mostly used.
+
+> Plot with all data
+
+```{r}
+simpleTelemTSPlot(sat2, curr.telemetries)
+```
+
+> Plot with only invalid data
+
+```{r}
+simpleTelemTSPlot(sat2.invalid, curr.telemetries)
+```
+
+> Plot with only valid data
+
+```{r}
+simpleTelemTSPlot(sat2.valid, curr.telemetries)
+```
+
+48 is nearly constant, but it's still not shielded from noise. 42 and 43 are widly different and vary a lot, which would make sense from their constant use... However, can't explain these values properly.
+
+Now the digital values. Again, the same as TR1, but this is the most used equipment.
+
+```{r}
+curr.telemetries = telemetries.tmtc.tr2[TYPE == 'BL']$ID
+summary(sat2[,..curr.telemetries])
+```
+
+> Plot with all data
+
+```{r}
+simpleTelemTSPlot(sat2, curr.telemetries)
+```
+
+> Plot with only invalid data
+
+```{r}
+simpleTelemTSPlot(sat2.invalid, curr.telemetries)
+```
+
+> Plot with only valid data
+
+```{r}
+simpleTelemTSPlot(sat2.valid, curr.telemetries)
+```
+An interesting result from the CRC check! It's always using CH1, always ON and always with coherent disabled, while the CRC data bring an entirely different visualization of it.
+
+### Decodificator - DEC
+
+```{r}
+telemetries.tmtc.dec = telemetries.tmtc[EQP == 'DEC']
+telemetries.tmtc.dec
+```
+
+Not exactly sure what this does, but it's an equipment too. Let's see if it's even being used.
+
+While on the documentation, TMs 58 and 59 do not exist on this data. So let's go with only the digital values, TMs 60 and 61.
+
+```{r}
+curr.telemetries = telemetries.tmtc.dec[TYPE == 'BL']$ID
+summary(sat2[,..curr.telemetries])
+```
+
+> Plot with all data
+
+```{r}
+simpleTelemTSPlot(sat2, curr.telemetries)
+```
+
+> Plot with only invalid data
+
+```{r}
+simpleTelemTSPlot(sat2.invalid, curr.telemetries)
+```
+
+> Plot with only valid data
+
+```{r}
+simpleTelemTSPlot(sat2.valid, curr.telemetries)
+```
+
+Well, these subcarriers aren't common, at least. They only appear at times, but not sure how accurate this is. This is mostly not useful for this analysis.
+
+## Reaction Wheel Experiment - ERR
+
+This was apparently just an experiment at a reaction wheel, however not sure if it works or is being used nowadays...
+
+```{r}
+telemetries.err = telemetries[SYSTEM == 'ERR']
+telemetries.err
+```
+
+```{r}
+curr.telemetries = telemetries.err$ID
+summary(sat2[,..curr.telemetries])
+```
+
+Won't even bother plotting: this apparently doesn't work or never did. At least not for this part of the data.
+
+TM 63 shows us that it's on the `OFF` position though, so maybe it can be turned on if necessary...?
+
+## Solar Cell Experiment - SCE
+
+Solar cell! But what part of it is an experiment?
+
+```{r}
+telemetries.sce = telemetries[SYSTEM == 'SCE']
+telemetries.sce
+```
+
+Current and voltage, just that.
+
+```{r}
+curr.telemetries = telemetries.sce$ID
+summary(sat2[,..curr.telemetries])
+```
+
+> Plot with all data
+
+```{r}
+simpleTelemTSPlot(sat2, curr.telemetries)
+```
+
+> Plot with only invalid data
+
+```{r}
+simpleTelemTSPlot(sat2.invalid, curr.telemetries)
+```
+
+> Plot with only valid data
+
+```{r}
+simpleTelemTSPlot(sat2.valid, curr.telemetries)
+```
+
+This is....simply chaotic, even with only the valid data. No idea how to read this, there should be charts on the documentation though.
+
+## On Board Supervisor - OBS
+
+Basically the OBC/OBDH.
+
+```{r}
+telemetries.obs = telemetries[SYSTEM == 'OBS']
+telemetries.obs
+```
+
+```{r}
+curr.telemetries = telemetries.obs$ID
+summary(sat2[,..curr.telemetries])
+```
+
+Which we can safely ignore them for now.
+
+## Temperatures - INT
+
+These are all the temperature readings on the satellite. These measure all of the subsystems, so it's a good general view of the satellite life.
+
+```{r}
+telemetries.int = telemetries[EQP == 'INT']
+telemetries.int
+```
+
+They are all from thermistor channels.
+
+I'll attempt to plot all of them together, but not sure... Let's see!
+
+```{r}
+curr.telemetries = telemetries.int$ID
+summary(sat2[,..curr.telemetries])
+```
+
+> Plot with all data
+
+```{r}
+simpleTelemTSPlot(sat2, curr.telemetries, facet = FALSE)
+```
+
+> Plot with only invalid data
+
+```{r}
+simpleTelemTSPlot(sat2.invalid, curr.telemetries, facet = FALSE)
+```
+
+> Plot with only valid data
+
+```{r}
+simpleTelemTSPlot(sat2.valid, curr.telemetries, facet = FALSE)
+```
+
+"This was a mistake", is all I can say about this plot. While the analysis of this is very useful, it'll require prying apart every single value. I'll leave to another notebook, as this one is supposed to only give an overview of all the telemetries.
+
+## Power Supply System - PSS
+
+This one is quite big too: it handles everything! Let's go by parts.
+
+I imagine that there's a lot of telemetries here due to simulation usefulness: can know the exact state of the satellite with all of these numbers.
+
+```{r}
+telemetries.pss = telemetries[SYSTEM == 'PSS']
+telemetries.pss
+```
+
+43 telemetries, we have a winner!
+
+I'll ignore the thermistor values, because we did them already earlier on this document.
+
+### Power Control Unit - PCU
+
+```{r}
+telemetries.pss.pcu = telemetries.pss[EQP == 'PCU']
+telemetries.pss.pcu
+```
+
+Let's go directly to the digital values first.
+
+There isn't much to explain on each single telemetry in this case, as they only serve to say whether something is off or on.
+The distinction between ON/OFF and enabled/disabled is not clear, though.
+
+```{r}
+curr.telemetries = telemetries.pss.pcu[TYPE == 'BL']$ID
+summary(sat2[,..curr.telemetries])
+```
+
+> Plot with all data
+
+```{r}
+simpleTelemTSPlot(sat2, curr.telemetries)
+```
+
+> Plot with only invalid data
+
+```{r}
+simpleTelemTSPlot(sat2.invalid, curr.telemetries)
+```
+
+> Plot with only valid data
+
+```{r}
+simpleTelemTSPlot(sat2.valid, curr.telemetries)
+```
+
+Again we see values which are constant, but some noise in the communication makes them not appear as so when plotted with the full data.
+
+#### Analog data
+
+Let's focus on each subsystem at a time.
+
+Or easier: voltage and current.
+This is what the data is currently divided into.
+
+First, the voltage ones.
+```{r}
+curr.telemetries = telemetries.pss.pcu[TYPE == 'AN']$ID
+voltage.telemetries = c('TM074', 'TM080', 'TM090')
+curr.telemetries = voltage.telemetries
+summary(sat2[,..curr.telemetries])
+```
+
+> Plot with all data
+
+```{r}
+simpleTelemTSPlot(sat2, curr.telemetries)
+```
+
+> Plot with only invalid data
+
+```{r}
+simpleTelemTSPlot(sat2.invalid, curr.telemetries)
+```
+
+> Plot with only valid data
+
+```{r}
+simpleTelemTSPlot(sat2.valid, curr.telemetries)
+```
+
+Some clear seasonality on this data, but will require further inspection, which I will not do here.
+
+Now the current!
+
+```{r}
+curr.telemetries = telemetries.pss.pcu[TYPE == 'AN']$ID
+curr.telemetries = curr.telemetries[! curr.telemetries %in% voltage.telemetries]
+summary(sat2[,..curr.telemetries])
+```
+
+> Plot with all data
+
+```{r}
+simpleTelemTSPlot(sat2, curr.telemetries)
+```
+
+> Plot with only invalid data
+
+```{r}
+simpleTelemTSPlot(sat2.invalid, curr.telemetries)
+```
+
+> Plot with only valid data
+
+```{r}
+simpleTelemTSPlot(sat2.valid, curr.telemetries)
+```
+
+This one is quite interesting, but won't tell us much either.
+There are some "wild" flunctuations on it, though.
+
+Again will require further inspection, but for now it's good to get a visualization on it.
+
+### Direct Current Converter - DCC
+
+```{r}
+telemetries.pss.dcc = telemetries.pss[EQP == 'DCC']
+telemetries.pss.dcc
+```
+
+Same thing: first the digital ones.
+
+```{r}
+curr.telemetries = telemetries.pss.dcc[TYPE == 'BL']$ID
+summary(sat2[,..curr.telemetries])
+```
+
+> Plot with all data
+
+```{r}
+simpleTelemTSPlot(sat2, curr.telemetries)
+```
+
+> Plot with only invalid data
+
+```{r}
+simpleTelemTSPlot(sat2.invalid, curr.telemetries)
+```
+
+> Plot with only valid data
+
+```{r}
+simpleTelemTSPlot(sat2.valid, curr.telemetries)
+```
+
+Constant, but the noise ruins it.
+
+Now the analog data!
+
+First the voltage
+
+```{r}
+timer.voltage.telemetries = c('TM087', 'TM088', 'TM089')
+curr.telemetries = timer.voltage.telemetries
+summary(sat2[,..curr.telemetries])
+```
+
+> Plot with all data
+
+```{r}
+simpleTelemTSPlot(sat2, curr.telemetries)
+```
+
+> Plot with only invalid data
+
+```{r}
+simpleTelemTSPlot(sat2.invalid, curr.telemetries)
+```
+
+> Plot with only valid data
+
+```{r}
+simpleTelemTSPlot(sat2.valid, curr.telemetries)
+```
+A bit noisier than expected, but the data has only some very subtle variances.
+
+Now the current
+```{r}
+curr.telemetries = telemetries.pss.dcc[TYPE == 'AN']$ID
+curr.telemetries = curr.telemetries[
+  ! curr.telemetries %in% timer.voltage.telemetries
+]
+summary(sat2[,..curr.telemetries])
+```
+
+> Plot with all data
+
+```{r}
+simpleTelemTSPlot(sat2, curr.telemetries)
+```
+
+> Plot with only invalid data
+
+```{r}
+simpleTelemTSPlot(sat2.invalid, curr.telemetries)
+```
+
+> Plot with only valid data
+
+```{r}
+simpleTelemTSPlot(sat2.valid, curr.telemetries)
+```
+
+Those peaks were present on TM94 too, so what happened to the power bus in those days? Interesting!
+
+### Power Distribution Unit - PDU
+
+This one is made of on/off status exclusively, so not as interesting to see.
+
+```{r}
+telemetries.pss.pdu = telemetries.pss[EQP == 'PDU' | EQP == 'PDX']
+telemetries.pss.pdu
+```
+I have decided to include the "PDX" equipment, as I believe that this might have been a typo from the document. It might not be, though.
+
+I'll divide into two batches of 10, though.
+
+```{r}
+target.telemetries = telemetries.pss.pdu[TYPE == 'BL']$ID
+curr.telemetries = target.telemetries[1:10]
+summary(sat2[,..curr.telemetries])
+```
+
+> Plot with all data
+
+```{r}
+simpleTelemTSPlot(sat2, curr.telemetries)
+```
+
+> Plot with only invalid data
+
+```{r}
+simpleTelemTSPlot(sat2.invalid, curr.telemetries)
+```
+
+> Plot with only valid data
+
+```{r}
+simpleTelemTSPlot(sat2.valid, curr.telemetries)
+```
+
+And the other batch:
+
+```{r}
+curr.telemetries = target.telemetries[10:20]
+summary(sat2[,..curr.telemetries])
+```
+
+> Plot with all data
+
+```{r}
+simpleTelemTSPlot(sat2, curr.telemetries)
+```
+
+> Plot with only invalid data
+
+```{r}
+simpleTelemTSPlot(sat2.invalid, curr.telemetries)
+```
+
+> Plot with only valid data
+
+```{r}
+simpleTelemTSPlot(sat2.valid, curr.telemetries)
+```
+
+Again, all pretty much continuous data that changes rarely. Though this is interesting for seeing what happens to the other telemetries when one telemetry is turned on or off.
+
+## Extra
+
+While the CRC has been plotted before, the extra telemetries haven't been exposed to this pattern.
+
+I have *no idea* what these are supposed to mean, but they might be telemetries derived from other telemetries...
+
+```{r}
+extra.telemetries = c('TM353', 'TM354')
+curr.telemetries = extra.telemetries
+summary(sat2[,..curr.telemetries])
+```
+
+> Plot with all data
+
+```{r}
+simpleTelemTSPlot(sat2, curr.telemetries)
+```
+
+> Plot with only invalid data
+
+```{r}
+simpleTelemTSPlot(sat2.invalid, curr.telemetries)
+```
+
+> Plot with only valid data
+
+```{r}
+simpleTelemTSPlot(sat2.valid, curr.telemetries)
+```
+
+Interesting that dip and how quickly it went about, though.
+This is certainly used for something by the ops team, but for what?!
+
+# That's it for now
+
+This was just to give an overview of all the telemetries. Specialized notebooks will appear as they are needed for specific analysis.
+

@@ -1,0 +1,228 @@
+---
+title: "Satellite Telemetry temperature analysis"
+author: Yuri Matheus Dias Pereira
+date: "`r format(Sys.time(), '%d/%m/%Y')`"
+output:
+  html_document:
+    highlight: tango
+    keep_md: yes
+    theme: readable
+---
+
+This notebook displays an EDA on the satellite thermistor data.
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r setuplibs}
+library(data.table) # Table
+library(lubridate) # Date
+library(GGally) # ggplot2 convenience
+library(parallel) # Threads counts
+library(fst) # File reading
+library(gridExtra) # Plot grids
+library(tidyverse) # meta-package: everything else
+library(magrittr)
+```
+
+# Reading the Data
+
+Let's import the prepared telemetries and description:
+
+```{r datain}
+root.dir <- '../'
+source(paste0(root.dir, "R/reading_telemetry.R"))
+
+# These are all the valid thermistor telemetries
+# Date and CRC are needed
+tms_th = c(
+ 'date', 'TM072', 'TM081', 'TM113', 'TM114', 'TM115', 'TM116', 'TM117',
+ 'TM118', 'TM119', 'TM120', 'TM121', 'TM122', 'TM124', 'TM126',
+ 'TM127', 'TM128', 'TM129', 'TM130', 'TM131', 'TM132', 'TM133',
+ 'TM134', 'TM135', 'TM136', 'TM137', 'TM138', 'TM139', 'TM140',
+ 'TM141', 'TM142', 'CheckCRC'
+)
+
+descriptions <- quick.read.tm.desc(root.dir)
+telemetry.fst.path = build.file.path(
+  root.dir = root.dir,
+  file.name = '2018-01-01--2018-08-08-SAT2-TH.fst'
+)
+telemetries <- read.telemetry.fst(telemetry.fst.path)
+```
+
+Nice! Let's make some simple visualizations first.
+
+```{r}
+simpleTelemTSPlot = function(data,
+                             measures,
+                             id.vars = 'date',
+                             geom = ggplot2::geom_point,
+                             scale.date = TRUE,
+                             facet = TRUE) {
+  # I know, repetition, but uses less memory than the full object
+  data.melt = melt.data.table(
+    data, id.vars = id.vars, variable.name = 'series',
+    measure.vars = measures
+  )
+  data.plot = ggplot(
+    data = data.melt,
+    aes(x = date, y = value, colour = series)
+  ) +
+    geom()
+  
+  if (scale.date) {
+    data.plot = data.plot + 
+      scale_x_datetime(
+        date_breaks = "12 hours",
+        date_labels = '%d-%m - %H:%M'
+        ) +
+      theme(
+        axis.text.x = element_text(
+          angle = 80, hjust = 1.0, vjust = 1.0
+        )
+      )
+  }
+  if (facet) {
+    data.plot = data.plot + 
+      facet_grid(series ~ ., scales = 'free_y')
+  }
+
+  return(data.plot)
+}
+telemetries.valid = telemetries[CheckCRC == 'OK']
+telemetries.invalid = telemetries[CheckCRC != 'OK']
+```
+
+@TODO: extract these common functions to a package or something
+
+First, the two battery ones.
+
+```{r, cache=TRUE}
+batteryTemps = c('TM072','TM081')
+simpleTelemTSPlot(telemetries.valid, batteryTemps, scale.date = F, facet = F)
+```
+
+Generating these graphs is too damn slow.
+
+
+# Fitting to time series
+
+Ok, let's focus on the roadmap:
+- Get the data for the batteries into TS object
+- Try and make a smoothing operation on that (Moving average?)
+- Try to identify trends, if possible.
+
+The hardest will be to fit the data to be able to perform analysis. Let's do that now!
+
+```{r}
+tms = telemetries.valid[1:100000]
+sample.ts = telemetries.valid[, .(date,TM072)]
+sample.tss = ts(sample.ts)
+
+library(TTR)
+sample.tss2 <- sample.ts %>%
+  # Complete the sequence
+  complete(date = seq(sample.ts[1]$date,sample.ts[.N]$date, by= .5)) %>%
+  as.data.table
+  
+sample.tss2s = ts(sample.tss2[,-c('date')], deltat = .5)
+
+dcm.tss = decompose(sample.tss)
+library(forecast)
+
+```
+
+```{r}
+data.melt = melt.data.table(
+  tms, id.vars = c('sequenceCounter', 'passageNum'),
+  variable.name = 'series',
+  measure.vars = c(
+    'TM124', 'TM115'
+  )
+)
+
+ggplot(
+  data = data.melt,
+  aes(x = sequenceCounter, y = value, colour = value)
+) +
+  geom_point() + 
+  facet_grid(series ~ .) +
+  scale_color_gradientn(colours = rainbow(5))
+```
+
+## ARIMA
+
+```{r}
+library(forecast)
+
+tms10k = tms[1:10000]
+tms.arima.fit = auto.arima(
+  tms10k$TM115,
+  seasonal = FALSE,
+  xreg = fourier(ts(tms10k$TM115, deltat = .5), K = 1)
+)
+Xreg1 = seasonaldummy(ts(tms10k$TM115, deltat = .5))
+plot(forecast(tms.arima.fit, h = 10, xreg = Xreg1))
+
+```
+
+...highly useless, need to account for the seasonality on this.
+
+
+## DTW
+
+Small attempt using DTW, but it's very slow for anything big.
+
+```{r}
+library(dtw)
+
+library(tidyquant)
+library(timetk)
+library(sweep)
+
+tms10k = tms[1:10000]
+
+bigpassages = tms10k %>%
+  group_by(passageNum) %>%
+  count() %>%
+  filter(n > 1000)
+
+# Selects the biggest number of continous passages
+tms.ts = tms10k %>%
+  filter(
+    passageNum %in% bigpassages$passageNum,
+    sequenceCounter < min(bigpassages$n)
+  ) %>%
+  group_by(passageNum) %>%
+  nest(.key = "data.tbl") %>%
+  mutate(
+    data.ts = map(
+      .x = data.tbl,
+      .f = ~ ts(.$TM115), # Only one as target for now
+      deltat = .5
+    )
+  )
+
+tms.ts = tms.ts %>%
+  mutate(
+    dist.dtw = map(.x = data.ts,
+        .f = function(o.ts, data.ts) {
+          map(
+            .x = data.ts,
+            .f = dtw,
+            distance.only = T,
+            y = o.ts
+          )
+        },
+        data.ts = data.ts
+      )
+    )
+```
+
+Now we have the distance between the most common parts of each passages! Let's check that out.
+
+```{r}
+```
+
