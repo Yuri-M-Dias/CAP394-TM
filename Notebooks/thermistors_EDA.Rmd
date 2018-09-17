@@ -26,6 +26,7 @@ library(dtw)
 library(tidyquant)
 library(timetk)
 library(sweep)
+library(wesanderson)
 ```
 
 # Reading the Data
@@ -73,9 +74,9 @@ simpleTelemTSPlot = function(data,
     aes(x = date, y = value, colour = series)
   ) +
     geom()
-  
+
   if (scale.date) {
-    data.plot = data.plot + 
+    data.plot = data.plot +
       scale_x_datetime(
         date_breaks = "12 hours",
         date_labels = '%d-%m - %H:%M'
@@ -87,7 +88,7 @@ simpleTelemTSPlot = function(data,
       )
   }
   if (facet) {
-    data.plot = data.plot + 
+    data.plot = data.plot +
       facet_grid(series ~ ., scales = 'free_y')
   }
 
@@ -120,18 +121,16 @@ The hardest will be to fit the data to be able to perform analysis. Let's do tha
 
 ```{r}
 tms = telemetries.valid[1:100000]
-sample.ts = telemetries.valid[, .(date,TM072)]
-sample.tss = ts(sample.ts)
+#sample.ts = telemetries.valid[, .(date,TM072)]
+#sample.tss = ts(sample.ts)
 
-sample.tss2 <- sample.ts %>%
+#sample.tss2 <- sample.ts %>%
   # Complete the sequence
-  complete(date = seq(sample.ts[1]$date,sample.ts[.N]$date, by= .5)) %>%
-  as.data.table
-  
-sample.tss2s = ts(sample.tss2[,-c('date')], deltat = .5)
+  #complete(date = seq(sample.ts[1]$date,sample.ts[.N]$date, by= .5)) %>%
+  #as.data.table
 
-dcm.tss = decompose(sample.tss)
-
+#sample.tss2s = ts(sample.tss2[,-c('date')], deltat = .5)
+#dcm.tss = decompose(sample.tss)
 ```
 
 ```{r}
@@ -147,7 +146,7 @@ ggplot(
   data = data.melt,
   aes(x = sequenceCounter, y = value, colour = value)
 ) +
-  geom_point() + 
+  geom_point() +
   facet_grid(series ~ .) +
   scale_color_gradientn(colours = rainbow(5))
 ```
@@ -176,15 +175,13 @@ plot(forecast(tms.arima.fit, h = 10, xreg = Xreg1))
 Small attempt using DTW, but it's very slow for anything big.
 
 ```{r}
-tms10k = tms[1:10000]
-
-bigpassages = tms10k %>%
+bigpassages = tms %>%
   group_by(passageNum) %>%
   count() %>%
   filter(n > 1000)
 
 # Selects the biggest number of continous passages
-tms.ts = tms10k %>%
+tms.ts = tms %>%
   filter(
     passageNum %in% bigpassages$passageNum,
     sequenceCounter < min(bigpassages$n)
@@ -199,24 +196,25 @@ tms.ts = tms10k %>%
     )
   )
 
-tms.ts = tms.ts %>%
-  mutate(
-    dist.dtw = map(.x = data.ts,
-        .f = function(o.ts, data.ts) {
-          map(
-            .x = data.ts,
-            .f = dtw,
-            distance.only = T,
-            y = o.ts
-          )
-        },
-        data.ts = data.ts
-      )
-    )
+dtw.matrix = tms.ts$data.ts %>%
+  map(.f = function(o.ts, data.ts) {
+      map(.x = data.ts,
+          .f = ~ dtw(., y = o.ts, distance.only = T)$distance
+         )
+    },
+    data.ts = tms.ts$data.ts
+  ) %>%
+  unlist() %>%
+  matrix(ncol = nrow(tms.ts), byrow = TRUE)
 ```
 
 Now we have the distance between the most common parts of each passages! Let's check that out.
 
 ```{r}
+pal <- wes_palette("Zissou1", 100, type = "continuous")
+dtw.matrix %>%
+  melt() %>%
+  ggplot(aes(Var1, Var2)) +
+  geom_tile(aes(fill = value)) +
+  scale_fill_gradientn(colours = pal)
 ```
-
